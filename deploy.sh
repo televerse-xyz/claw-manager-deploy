@@ -14,10 +14,75 @@ FRONTEND_IMAGE_DEFAULT="crpi-pbzlbo78mwdo9lmb.cn-shenzhen.personal.cr.aliyuncs.c
 
 echo -e "${GREEN}========== Claw Manager 部署脚本 ==========${NC}"
 
+# 0. 判断是否为 Ubuntu
+if [ -f /etc/os-release ]; then
+    . /etc/os-release
+    if [ "$ID" != "ubuntu" ] && [[ "$ID_LIKE" != *"ubuntu"* ]] && [[ "$ID_LIKE" != *"debian"* ]]; then
+        echo -e "${RED}错误：当前系统不是 Ubuntu/Debian，本脚本仅支持 Ubuntu 环境。${NC}"
+        exit 1
+    fi
+else
+    echo -e "${RED}错误：无法识别操作系统。${NC}"
+    exit 1
+fi
+
 # 1. 检查 Docker 是否安装
 if ! command -v docker &> /dev/null; then
-    echo -e "${RED}错误: Docker 未安装，请先安装 Docker。${NC}"
-    exit 1
+    echo -e "${YELLOW}Docker 未安装。${NC}"
+    read -rp "是否安装 Docker？ [ok/N]: " install_docker
+    if [[ "$install_docker" =~ ^[Oo][Kk]$ ]] || [[ "$install_docker" =~ ^[Yy]([Ee][Ss])?$ ]]; then
+        echo -e "${YELLOW}正在安装 Docker...${NC}"
+
+        # Set up Docker's apt repository
+        sudo apt-get update
+        sudo apt-get install -y ca-certificates curl
+        sudo install -m 0755 -d /etc/apt/keyrings
+        sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+        sudo chmod a+r /etc/apt/keyrings/docker.asc
+
+        # Add the repository to Apt sources (deb822 format)
+        sudo tee /etc/apt/sources.list.d/docker.sources <<EOF
+Types: deb
+URIs: https://download.docker.com/linux/ubuntu
+Suites: $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}")
+Components: stable
+Architectures: $(dpkg --print-architecture)
+Signed-By: /etc/apt/keyrings/docker.asc
+EOF
+
+        sudo apt-get update
+
+        # Install Docker packages
+        sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+        # Start Docker service
+        sudo systemctl start docker
+        sudo systemctl enable docker
+
+        echo -e "${GREEN}Docker 安装完成。${NC}"
+    else
+        echo -e "${RED}取消安装，退出。${NC}"
+        exit 1
+    fi
+fi
+
+# 检查当前用户是否有 Docker 使用权限
+if ! docker ps &> /dev/null; then
+    if [ "$EUID" -eq 0 ]; then
+        echo -e "${RED}错误: Docker 服务未运行或安装异常。${NC}"
+        exit 1
+    else
+        echo -e "${RED}错误: 当前用户无 Docker 使用权限。${NC}"
+        # 如果用户刚安装完，尝试将其加入 docker 组
+        if groups "$USER" | grep -qw docker; then
+            echo -e "${YELLOW}用户已在 docker 组，请重新登录后再次运行本脚本。${NC}"
+        else
+            echo -e "${YELLOW}正在将当前用户加入 docker 组...${NC}"
+            sudo usermod -aG docker "$USER"
+            echo -e "${GREEN}已加入 docker 组，请重新登录后再次运行本脚本。${NC}"
+        fi
+        exit 1
+    fi
 fi
 
 # 检查 Docker Compose 是否可用
