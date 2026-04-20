@@ -14,56 +14,10 @@ FRONTEND_IMAGE_DEFAULT="crpi-pbzlbo78mwdo9lmb.cn-shenzhen.personal.cr.aliyuncs.c
 
 echo -e "${GREEN}========== Claw Manager 部署脚本 ==========${NC}"
 
-# 0. 判断是否为 Ubuntu
-if [ -f /etc/os-release ]; then
-    . /etc/os-release
-    if [ "$ID" != "ubuntu" ] && [[ "$ID_LIKE" != *"ubuntu"* ]] && [[ "$ID_LIKE" != *"debian"* ]]; then
-        echo -e "${RED}错误：当前系统不是 Ubuntu/Debian，本脚本仅支持 Ubuntu 环境。${NC}"
-        exit 1
-    fi
-else
-    echo -e "${RED}错误：无法识别操作系统。${NC}"
-    exit 1
-fi
-
 # 1. 检查 Docker 是否安装
 if ! command -v docker &> /dev/null; then
-    echo -e "${YELLOW}Docker 未安装。${NC}"
-    read -rp "是否安装 Docker？ [ok/N]: " install_docker
-    if [[ "$install_docker" =~ ^[Oo][Kk]$ ]] || [[ "$install_docker" =~ ^[Yy]([Ee][Ss])?$ ]]; then
-        echo -e "${YELLOW}正在安装 Docker...${NC}"
-
-        # Set up Docker's apt repository
-        sudo apt-get update
-        sudo apt-get install -y ca-certificates curl
-        sudo install -m 0755 -d /etc/apt/keyrings
-        sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
-        sudo chmod a+r /etc/apt/keyrings/docker.asc
-
-        # Add the repository to Apt sources (deb822 format)
-        sudo tee /etc/apt/sources.list.d/docker.sources <<EOF
-Types: deb
-URIs: https://download.docker.com/linux/ubuntu
-Suites: $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}")
-Components: stable
-Architectures: $(dpkg --print-architecture)
-Signed-By: /etc/apt/keyrings/docker.asc
-EOF
-
-        sudo apt-get update
-
-        # Install Docker packages
-        sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-
-        # Start Docker service
-        sudo systemctl start docker
-        sudo systemctl enable docker
-
-        echo -e "${GREEN}Docker 安装完成。${NC}"
-    else
-        echo -e "${RED}取消安装，退出。${NC}"
-        exit 1
-    fi
+    echo -e "${RED}错误: Docker 未安装，请先安装 Docker。${NC}"
+    exit 1
 fi
 
 # 检查当前用户是否有 Docker 使用权限
@@ -97,27 +51,7 @@ fi
 
 echo -e "${GREEN}Docker 和 Docker Compose 检查通过。${NC}"
 
-# 2. 要求用户输入 Docker 账号密码并登录
-echo ""
-echo -e "${YELLOW}请输入 Docker Hub 账号信息进行登录（输入内容不会显示在屏幕上）：${NC}"
-read -rp "Docker Username: " docker_username
-read -srp "Docker Password: " docker_password
- echo ""
-
-if [ -z "$docker_username" ] || [ -z "$docker_password" ]; then
-    echo -e "${RED}错误: Username 和 Password 不能为空。${NC}"
-    exit 1
-fi
-
-echo -e "${YELLOW}正在登录 Docker Hub...${NC}"
-if echo "$docker_password" | docker login -u "$docker_username" --password-stdin > /dev/null 2>&1; then
-    echo -e "${GREEN}Docker 登录成功。${NC}"
-else
-    echo -e "${RED}Docker 登录失败，请检查账号密码是否正确。${NC}"
-    exit 1
-fi
-
-# 3. 输入后端和前端镜像
+# 2. 输入后端和前端镜像
 echo ""
 echo -e "${YELLOW}请输入后端镜像名称（直接回车使用默认值）：${NC}"
 echo -e "${YELLOW}默认: ${BACKEND_IMAGE_DEFAULT}${NC}"
