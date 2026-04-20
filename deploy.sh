@@ -64,6 +64,30 @@ echo -e "${YELLOW}默认: ${FRONTEND_IMAGE_DEFAULT}${NC}"
 read -rp "Frontend Image: " frontend_image
 FRONTEND_IMAGE="${frontend_image:-$FRONTEND_IMAGE_DEFAULT}"
 
+# 3. Docker Login（可选）
+echo ""
+echo -e "${YELLOW}是否需要登录 Docker 镜像仓库？${NC}"
+read -rp "登录镜像仓库? [y/N]: " need_login
+if [[ "$need_login" =~ ^[Yy]$ ]]; then
+    # 从后端镜像地址自动提取 registry 域名
+    REGISTRY=$(echo "$BACKEND_IMAGE" | cut -d'/' -f1)
+    echo -e "${YELLOW}默认 Registry: ${REGISTRY}${NC}"
+    read -rp "Registry (直接回车使用默认值): " input_registry
+    REGISTRY="${input_registry:-$REGISTRY}"
+
+    read -rp "用户名: " docker_username
+    read -srp "密码: " docker_password
+    echo ""  # 换行，因为密码输入没有回显
+
+    echo -e "${YELLOW}正在登录 ${REGISTRY}...${NC}"
+    if echo "$docker_password" | docker login "$REGISTRY" --username "$docker_username" --password-stdin; then
+        echo -e "${GREEN}Docker 登录成功。${NC}"
+    else
+        echo -e "${RED}Docker 登录失败。${NC}"
+        exit 1
+    fi
+fi
+
 # 4. 拉取后端和前端镜像
 echo ""
 echo -e "${YELLOW}正在拉取后端镜像 ${BACKEND_IMAGE}...${NC}"
