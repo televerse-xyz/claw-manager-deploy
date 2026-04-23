@@ -154,6 +154,7 @@ services:
     volumes:
       - backend_config:/config:ro
       - /var/run/docker.sock:/var/run/docker.sock
+      - samba_config:/etc/samba
     group_add:
       - "${DOCKER_GID:-998}"
     depends_on:
@@ -161,6 +162,30 @@ services:
         condition: service_completed_successfully
       postgres:
         condition: service_healthy
+
+  samba:
+    image: dockurr/samba:4.23.5
+    container_name: claw-manager-samba
+    logging:
+      driver: local
+      options:
+        max-size: "50m"
+        max-file: "20"
+    ports:
+      - "139:139"
+      - "445:445"
+    volumes:
+      - /var/lib/docker/volumes:/docker-volumes:rw
+      - samba_config:/etc/samba
+    restart: unless-stopped
+    environment:
+      USER: "sangbo"
+      PASS: "sangbo"
+      USERID: 0
+      GROUPID: 0
+    depends_on:
+      config-init:
+        condition: service_completed_successfully
 
   config-init:
     image: postgres:18.3-bookworm
@@ -174,10 +199,13 @@ services:
         condition: service_healthy
     volumes:
       - backend_config:/config
+      - samba_config:/etc/samba
     entrypoint:
       - /bin/sh
       - -ec
       - |
+        echo "=== Init config + samba ==="
+
         db_password="$$(tr -dc 'A-Za-z0-9' </dev/urandom | head -c 24)"
         admin_password="$$(tr -dc 'A-Za-z0-9' </dev/urandom | head -c 24)"
 
@@ -212,6 +240,25 @@ services:
         Password = "$${db_password}"
         EOFC
 
+        echo "=== Init samba config ==="
+
+        if [ ! -f /etc/samba/smb.conf ]; then
+          cat > /etc/samba/smb.conf <<'EOFSMB'
+        [global]
+           workgroup = WORKGROUP
+           security = user
+           map to guest = Never
+           disable netbios = yes
+           browseable = no
+           create mask = 0664
+           directory mask = 0775
+           force user = root
+           force group = root
+        EOFSMB
+        fi
+
+        echo "=== Init done ==="
+
   frontend:
     image: __FRONTEND_IMAGE__
     logging:
@@ -227,6 +274,7 @@ services:
 volumes:
   postgres_data:
   backend_config:
+  samba_config:
 EOF
 
 # 替换占位符为实际镜像
