@@ -8,9 +8,10 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-# 默认镜像
-BACKEND_IMAGE_DEFAULT="crpi-pbzlbo78mwdo9lmb.cn-shenzhen.personal.cr.aliyuncs.com/televerse/claw-manager-backend:latest"
-FRONTEND_IMAGE_DEFAULT="crpi-pbzlbo78mwdo9lmb.cn-shenzhen.personal.cr.aliyuncs.com/televerse/claw-manager-frontend:latest"
+# 默认镜像前缀和标签
+BACKEND_IMAGE_PREFIX="crpi-pbzlbo78mwdo9lmb.cn-shenzhen.personal.cr.aliyuncs.com/televerse/claw-manager-backend"
+FRONTEND_IMAGE_PREFIX="crpi-pbzlbo78mwdo9lmb.cn-shenzhen.personal.cr.aliyuncs.com/televerse/claw-manager-frontend"
+DEFAULT_TAG="latest"
 
 echo -e "${GREEN}========== Claw Manager 部署脚本 ==========${NC}"
 
@@ -51,18 +52,20 @@ fi
 
 echo -e "${GREEN}Docker 和 Docker Compose 检查通过。${NC}"
 
-# 2. 输入后端和前端镜像
+# 2. 输入后端和前端镜像标签
 echo ""
-echo -e "${YELLOW}请输入后端镜像名称（直接回车使用默认值）：${NC}"
-echo -e "${YELLOW}默认: ${BACKEND_IMAGE_DEFAULT}${NC}"
-read -rp "Backend Image: " backend_image
-BACKEND_IMAGE="${backend_image:-$BACKEND_IMAGE_DEFAULT}"
+echo -e "${YELLOW}请输入后端镜像标签（直接回车使用默认值）：${NC}"
+echo -e "${YELLOW}默认: ${DEFAULT_TAG}${NC}"
+read -rp "Backend Tag: " backend_tag
+backend_tag="${backend_tag:-$DEFAULT_TAG}"
+BACKEND_IMAGE="${BACKEND_IMAGE_PREFIX}:${backend_tag}"
 
 echo ""
-echo -e "${YELLOW}请输入前端镜像名称（直接回车使用默认值）：${NC}"
-echo -e "${YELLOW}默认: ${FRONTEND_IMAGE_DEFAULT}${NC}"
-read -rp "Frontend Image: " frontend_image
-FRONTEND_IMAGE="${frontend_image:-$FRONTEND_IMAGE_DEFAULT}"
+echo -e "${YELLOW}请输入前端镜像标签（直接回车使用默认值）：${NC}"
+echo -e "${YELLOW}默认: ${DEFAULT_TAG}${NC}"
+read -rp "Frontend Tag: " frontend_tag
+frontend_tag="${frontend_tag:-$DEFAULT_TAG}"
+FRONTEND_IMAGE="${FRONTEND_IMAGE_PREFIX}:${frontend_tag}"
 
 # 3. Docker Login（可选）
 echo ""
